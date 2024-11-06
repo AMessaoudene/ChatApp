@@ -6,6 +6,7 @@ channels = {}  # Dictionary to store channels with connected clients
 
 def handle_client(client_socket):
     try:
+        # Receive and store the client's nickname
         nickname = client_socket.recv(1024).decode('utf-8')
         clients[client_socket] = nickname
         broadcast(f"{nickname} has joined the chat.", client_socket)
@@ -30,6 +31,8 @@ def handle_command(command, client_socket):
         leave_channel(client_socket)
     elif command.startswith("/help"):
         send_help(client_socket)
+    elif command.startswith("/quit"):
+        client_disconnect(client_socket)
 
 def broadcast(message, client_socket=None):
     for client in clients:
@@ -58,10 +61,11 @@ def leave_channel(client_socket):
 
 def client_disconnect(client_socket):
     nickname = clients.pop(client_socket, None)
+    if nickname:
+        broadcast(f"{nickname} has left the chat.")
     for channel in channels.values():
         if client_socket in channel:
             channel.remove(client_socket)
-    broadcast(f"{nickname} has left the chat.")
     client_socket.close()
 
 def send_help(client_socket):
@@ -70,6 +74,7 @@ def send_help(client_socket):
         "/list - List all active users\n"
         "/join <channel> - Join or create a channel\n"
         "/leave - Leave the current channel\n"
+        "/quit - Quit the chat\n"
     )
     client_socket.send(help_message.encode('utf-8'))
 
@@ -82,7 +87,6 @@ def main():
     while True:
         client_socket, addr = server.accept()
         print(f"Connection from {addr}")
-        client_socket.send("Enter your nickname: ".encode('utf-8'))
         threading.Thread(target=handle_client, args=(client_socket,)).start()
 
 if __name__ == "__main__":
