@@ -1,5 +1,6 @@
 import socket
 import threading
+import ssl
 
 clients = {}  # Dictionary to store client socket and nickname
 channels = {}  # Dictionary to store channels with connected clients
@@ -79,10 +80,31 @@ def send_help(client_socket):
     client_socket.send(help_message.encode('utf-8'))
 
 def main():
+
+    # Set up SSL context
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+
+    # Load server certificate and private key
+    context.load_cert_chain(certfile='server.crt', keyfile='server.key')
+
+    # Specify allowed cipher suites (example: only allow strong ciphers)
+    context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384')
+
+    # Set the context to use only secure protocols and ciphers
+    context.verify_mode = ssl.CERT_NONE  
+
+    # Specify the minimum and maximum TLS versions to allow
+    context.options |= ssl.OP_NO_TLSv1   # Disable TLS 1.0
+    context.options |= ssl.OP_NO_TLSv1_1 # Disable TLS 1.1
+    context.minimum_version = ssl.TLSVersion.TLSv1_2  # Force TLS 1.2 or higher
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('127.0.0.1', 5555))
     server.listen()
     print("Server started on port 5555")
+
+    # Wrapping socket with SSL context
+    server = context.wrap_socket(server, server_side=True)
 
     while True:
         client_socket, addr = server.accept()
